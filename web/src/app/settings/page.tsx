@@ -1,24 +1,23 @@
 "use client";
 
-import Script from "next/script";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { AppShell, ErrorNote, errorText } from "@/components/shell";
-import { api, type AppConfig, type ProfileDto, type Progress } from "@/lib/api";
+import { api, homeFor, PLAN_NAME, prettyDate, type Me, type ProfileDto, type Progress } from "@/lib/api";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-export default function Settings() {
+function SettingsForm() {
   const router = useRouter();
+  const mustChange = useSearchParams().get("change") === "1";
+  const [passwords, setPasswords] = useState({ currentPassword: "", newPassword: "" });
+  const [passwordSaved, setPasswordSaved] = useState(false);
   const [profile, setProfile] = useState<ProfileDto | null>(null);
-  const [config, setConfig] = useState<AppConfig | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     api<ProfileDto>("/profile/").then(setProfile).catch((e) => setError(errorText(e)));
-    api<AppConfig>("/config").then(setConfig).catch(() => {});
     api<Progress>("/progress").then(setProgress).catch(() => {});
   }, []);
 
@@ -36,25 +35,15 @@ export default function Settings() {
     catch (err) { setError(errorText(err)); }
   }
 
-  async function upgrade() {
+  async function changePassword(e: React.FormEvent) {
+    e.preventDefault();
     setError(null);
+    setPasswordSaved(false);
     try {
-      const order = await api<{ orderId: string; keyId: string; amountPaise: number }>("/billing/checkout", { method: "POST" });
-      const checkout = new (window as any).Razorpay({
-        key: order.keyId,
-        order_id: order.orderId,
-        amount: order.amountPaise,
-        currency: "INR",
-        name: "Pratibha",
-        description: "Pro plan, 30 days",
-        handler: async (r: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-          try {
-            await api("/billing/verify", { method: "POST", json: { orderId: r.razorpay_order_id, paymentId: r.razorpay_payment_id, signature: r.razorpay_signature } });
-            setProgress(await api<Progress>("/progress"));
-          } catch (err) { setError(errorText(err)); }
-        },
-      });
-      checkout.open();
+      await api("/me/password", { method: "POST", json: passwords });
+      setPasswords({ currentPassword: "", newPassword: "" });
+      setPasswordSaved(true);
+      if (mustChange) router.replace(homeFor(await api<Me>("/me/")));
     } catch (err) { setError(errorText(err)); }
   }
 
@@ -69,6 +58,7 @@ export default function Settings() {
   return (
     <AppShell>
       <h1 className="text-3xl font-semibold">Settings</h1>
+      {mustChange && <p role="status" className="mt-3 rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn">You signed in with a temporary password. Please choose a new one below to continue.</p>}
       <div className="mt-4"><ErrorNote message={error} /></div>
 
       {profile && (
@@ -101,17 +91,29 @@ export default function Settings() {
         <section className="card mt-4">
           <h2 className="text-xl font-semibold">Plan</h2>
           <p className="mt-1 text-ink-2">
-            You&rsquo;re on the {progress.plan === "pro" ? "Pro" : "Free"} plan, with {progress.limit} interviews a month.
+            You&rsquo;re on the {PLAN_NAME[progress.plan]} plan, with {progress.limit} interviews a month.
+            {progress.renewsAt && <> Active until {prettyDate(progress.renewsAt)}.</>}
           </p>
-          {progress.plan !== "pro" && config?.billingEnabled && (
-            <>
-              <Script src="https://checkout.razorpay.com/v1/checkout.js" />
-              <button className="btn mt-3" onClick={upgrade}>Upgrade to Pro, ₹{(config.proPricePaise / 100).toLocaleString("en-IN")} for 30 days</button>
-            </>
-          )}
-          {progress.plan !== "pro" && config && !config.billingEnabled && <p className="mt-2 text-sm text-ink-3">Upgrades are not available yet.</p>}
+          <Link href="/pricing/" className="btn btn-quiet mt-3">See plans</Link>
         </section>
       )}
+
+      <form onSubmit={changePassword} className="card mt-4 space-y-4">
+        <h2 className="text-xl font-semibold">Password</h2>
+        <div>
+          <label className="label" htmlFor="current">Current password</label>
+          <input id="current" type="password" className="field" required autoComplete="current-password" value={passwords.currentPassword} onChange={(e) => setPasswords({ ...passwords, currentPassword: e.target.value })} />
+        </div>
+        <div>
+          <label className="label" htmlFor="new">New password</label>
+          <input id="new" type="password" className="field" required minLength={8} autoComplete="new-password" value={passwords.newPassword} onChange={(e) => setPasswords({ ...passwords, newPassword: e.target.value })} />
+          <p className="mt-1 text-xs text-ink-3">At least 8 characters. This signs you out on other devices.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button className="btn">Change password</button>
+          {passwordSaved && <span role="status" className="text-sm text-ink-2">Password changed</span>}
+        </div>
+      </form>
 
       <section className="card mt-4">
         <h2 className="text-xl font-semibold">Your data</h2>
@@ -123,4 +125,8 @@ export default function Settings() {
       </section>
     </AppShell>
   );
+}
+
+export default function Settings() {
+  return <Suspense><SettingsForm /></Suspense>;
 }

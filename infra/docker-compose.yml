@@ -30,7 +30,8 @@ services:
       Billing__KeyId: ${RAZORPAY_KEY_ID:-}
       Billing__KeySecret: ${RAZORPAY_KEY_SECRET:-}
       Billing__WebhookSecret: ${RAZORPAY_WEBHOOK_SECRET:-}
-      Admin__Emails__0: ${ADMIN_EMAIL:-}
+      SuperAdmin__Email: ${SUPER_ADMIN_EMAIL:-}
+      SuperAdmin__Password: ${SUPER_ADMIN_PASSWORD:-}
 
 volumes:
   sqldata:

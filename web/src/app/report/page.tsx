@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { AppShell, ErrorNote, errorText } from "@/components/shell";
-import { api, CATEGORY_LABEL, prettyDate, type Report } from "@/lib/api";
+import { api, CATEGORY_LABEL, levelLabel, prettyDate, type Report } from "@/lib/api";
 
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
@@ -89,7 +89,7 @@ function ReportView() {
 
       {e && report && (
         <>
-          <p className="text-sm text-ink-2">{CATEGORY_LABEL[report.session.category]}, {report.session.difficulty} · {prettyDate(report.session.createdAt)}</p>
+          <p className="text-sm text-ink-2">{CATEGORY_LABEL[report.session.category]}, {levelLabel(report.session.level)} · {prettyDate(report.session.createdAt)}</p>
           <div className="mt-1 flex items-baseline gap-3">
             <h1 className="text-6xl font-semibold tabular-nums">{e.overallScore}</h1>
             <span className="text-ink-2">out of 100</span>

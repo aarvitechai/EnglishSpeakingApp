@@ -28,9 +28,11 @@ public static class ProgressEndpoints
                 .ToListAsync();
 
             var plan = await service.EffectivePlanAsync(id);
+            var now = DateTime.UtcNow;
             return Results.Ok(new
             {
                 plan,
+                renewsAt = await db.Subscriptions.Where(s => s.UserId == id && s.Plan == plan && s.Status == SubscriptionStatus.Active && s.RenewsAt > now).MaxAsync(s => s.RenewsAt),
                 used = await service.UsedThisMonthAsync(id),
                 limit = service.MonthlyLimit(plan),
                 sessions = rows.Select(r => new { r.Id, r.CreatedAt, r.Category, score = r.OverallScore }),
@@ -71,33 +73,5 @@ public static class ProgressEndpoints
             await db.SaveChangesAsync();
             return Results.NoContent();
         });
-    }
-}
-
-public static class AdminEndpoints
-{
-    /// <summary>The BUILD_PLAN section 10 metrics that can be derived from our own tables.</summary>
-    public static void MapAdminEndpoints(this WebApplication app)
-    {
-        app.MapGet("/api/admin/metrics", async (AppDbContext db) =>
-        {
-            var users = await db.Users.CountAsync();
-            var activated = await db.Users.CountAsync(u => db.Sessions.Any(s =>
-                s.UserId == u.Id && s.Status == SessionStatus.Completed && s.CreatedAt <= u.CreatedAt.AddHours(24)));
-            var started = await db.Sessions.CountAsync(s => s.Status != SessionStatus.Created);
-            var completed = await db.Sessions.CountAsync(s => s.Status == SessionStatus.Completed);
-            var ratings = db.Evaluations.Where(e => e.HelpfulRating != null).Select(e => (double?)e.HelpfulRating);
-            return Results.Ok(new
-            {
-                users,
-                activationRate = users == 0 ? 0 : Math.Round((double)activated / users, 3),
-                sessionsStarted = started,
-                sessionsCompleted = completed,
-                completionRate = started == 0 ? 0 : Math.Round((double)completed / started, 3),
-                avgCostPaisePerCompleted = await db.Sessions.Where(s => s.Status == SessionStatus.Completed).AverageAsync(s => (double?)s.CostPaise),
-                avgHelpfulRating = await ratings.AverageAsync(),
-                paidUsers = await db.Subscriptions.CountAsync(s => s.Status == SubscriptionStatus.Active && s.RenewsAt > DateTime.UtcNow),
-            });
-        }).RequireAuthorization(p => p.RequireRole(Roles.Admin));
     }
 }

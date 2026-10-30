@@ -99,6 +99,8 @@ export class Speaker {
   private idleWaiters: (() => void)[] = [];
   spoken = "";
 
+  constructor(private onSpeakingChange?: (speaking: boolean) => void) {}
+
   private voice(): SpeechSynthesisVoice | undefined {
     const voices = speechSynthesis.getVoices();
     return voices.find((v) => v.lang === "en-IN") ?? voices.find((v) => v.lang.startsWith("en"));
@@ -129,6 +131,7 @@ export class Speaker {
     u.lang = voice?.lang ?? "en-IN";
     u.rate = 1.02;
     this.pending++;
+    this.onSpeakingChange?.(true);
     const done = () => {
       this.pending = Math.max(0, this.pending - 1);
       if (this.pending === 0) this.notifyIdle();
@@ -151,6 +154,7 @@ export class Speaker {
   }
 
   private notifyIdle() {
+    this.onSpeakingChange?.(false);
     this.idleWaiters.splice(0).forEach((r) => r());
   }
 }

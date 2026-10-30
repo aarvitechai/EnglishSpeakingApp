@@ -19,6 +19,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<PracticePlan> PracticePlans => Set<PracticePlan>();
     public DbSet<Subscription> Subscriptions => Set<Subscription>();
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -32,6 +33,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.PasswordHash).HasMaxLength(500);
             e.Property(x => x.GoogleSubject).HasMaxLength(100);
             e.HasIndex(x => x.Email).IsUnique();
+            e.HasIndex(x => x.Role);
+            e.Property(x => x.SecurityStamp).HasDefaultValueSql("NEWID()");
             e.HasOne(x => x.Org).WithMany().HasForeignKey(x => x.OrgId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Profile).WithOne().HasForeignKey<Profile>(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -74,6 +77,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Difficulty).HasMaxLength(10);
             e.Property(x => x.Text).HasMaxLength(500);
             e.Property(x => x.Tags).HasMaxLength(300);
+            e.Property(x => x.Hint).HasMaxLength(300);
             e.Property(x => x.Embedding).HasColumnType("vector(1536)");
             e.HasIndex(x => new { x.Category, x.Text }).IsUnique();
             e.HasIndex(x => new { x.Category, x.Difficulty });
@@ -137,6 +141,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // Billing records outlive account deletion (tax retention), so unlink rather than cascade.
             e.HasOne<User>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrgId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<AuditLog>(e =>
+        {
+            e.Property(x => x.ActorEmail).HasMaxLength(256);
+            e.Property(x => x.TargetEmail).HasMaxLength(256);
+            e.Property(x => x.Action).HasMaxLength(50);
+            e.Property(x => x.Detail).HasMaxLength(500);
+            e.HasIndex(x => x.CreatedAt);
         });
 
         b.Entity<Payment>(e =>

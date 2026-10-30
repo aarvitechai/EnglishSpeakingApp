@@ -11,7 +11,9 @@ public class BillingOptions
     public string? KeyId { get; set; }
     public string? KeySecret { get; set; }
     public string? WebhookSecret { get; set; }
+    public long PlusPricePaise { get; set; } = 19900;
     public long ProPricePaise { get; set; } = 49900;
+    public long PriceFor(string plan) => plan == Domain.Plans.Pro ? ProPricePaise : PlusPricePaise;
     public int ProDays { get; set; } = 30;
     public bool Enabled => !string.IsNullOrWhiteSpace(KeyId) && !string.IsNullOrWhiteSpace(KeySecret);
 }

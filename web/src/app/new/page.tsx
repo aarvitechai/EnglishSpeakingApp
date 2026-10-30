@@ -1,9 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppShell, ErrorNote, errorText } from "@/components/shell";
-import { api, type ProfileDto } from "@/lib/api";
+import { api, PLAN_NAME, type Catalog, type ProfileDto, type Progress } from "@/lib/api";
 import { speechRecognitionSupported } from "@/lib/voice";
 
 const CATEGORIES = [
@@ -11,12 +12,6 @@ const CATEGORIES = [
   { id: "behavioural", name: "Behavioural", desc: "\"Tell me about a time…\" stories, scored on STAR." },
   { id: "technical", name: "Technical", desc: "DSA, DBMS, OS, networks, OOP and your projects." },
 ];
-const LEVELS = [
-  { id: "easy", name: "Easy", desc: "10 min, friendly" },
-  { id: "medium", name: "Medium", desc: "15 min, probing" },
-  { id: "hard", name: "Hard", desc: "20 min, demanding" },
-];
-
 function Choice({ selected, onClick, title, desc }: { selected: boolean; onClick: () => void; title: string; desc: string }) {
   return (
     <button type="button" aria-pressed={selected} onClick={onClick}
@@ -30,10 +25,13 @@ function Choice({ selected, onClick, title, desc }: { selected: boolean; onClick
 export default function NewInterview() {
   const router = useRouter();
   const [category, setCategory] = useState("hr");
-  const [difficulty, setDifficulty] = useState("easy");
+  const [level, setLevel] = useState("1");
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [plan, setPlan] = useState("free");
   const [mode, setMode] = useState<"voice" | "text">("text");
   const [voiceOk, setVoiceOk] = useState(false);
   const [consent, setConsent] = useState(false);
+  const [camera, setCamera] = useState(false);
   const [jobDescription, setJd] = useState("");
   const [profile, setProfile] = useState<ProfileDto | null>(null);
   const [targetRole, setTargetRole] = useState("");
@@ -45,6 +43,8 @@ export default function NewInterview() {
     const ok = speechRecognitionSupported();
     setVoiceOk(ok);
     if (ok) setMode("voice");
+    api<Catalog>("/plans").then(setCatalog).catch(() => {});
+    api<Progress>("/progress").then((p) => setPlan(p.plan)).catch(() => {});
     api<ProfileDto>("/profile/").then((p) => { setProfile(p); setTargetRole(p.targetRole ?? ""); }).catch(() => {});
   }, []);
 
@@ -68,8 +68,8 @@ export default function NewInterview() {
     try {
       if (targetRole !== (profile?.targetRole ?? ""))
         await api("/profile/", { method: "PUT", json: { targetRole, experienceLevel: profile?.experienceLevel } });
-      const { id } = await api<{ id: string }>("/sessions/", { method: "POST", json: { category, difficulty, jobDescription, mode, voiceConsent: mode === "voice" && consent } });
-      router.push(`/interview/?id=${id}`);
+      const { id } = await api<{ id: string }>("/sessions/", { method: "POST", json: { category, level, jobDescription, mode, voiceConsent: mode === "voice" && consent } });
+      router.push(`/interview/?id=${id}${mode === "voice" && camera ? "&camera=1" : ""}`);
     } catch (e) {
       setError(errorText(e));
       setBusy(false);
@@ -87,20 +87,39 @@ export default function NewInterview() {
 
       <section className="mt-6">
         <h2 className="label">Level</h2>
-        <div className="grid grid-cols-3 gap-3">{LEVELS.map((l) => <Choice key={l.id} selected={difficulty === l.id} onClick={() => setDifficulty(l.id)} title={l.name} desc={l.desc} />)}</div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {catalog?.levels.map((l) => {
+            const included = catalog.plans.find((x) => x.id === plan)?.levels.includes(l.id);
+            return included
+              ? <Choice key={l.id} selected={level === l.id} onClick={() => setLevel(l.id)} title={`Level ${l.id}: ${l.name}`} desc={`${l.summary} About ${l.minutes} minutes.`} />
+              : (
+                <Link key={l.id} href="/pricing/" className="rounded-lg border border-dashed border-line p-3">
+                  <span className="block font-semibold">Level {l.id}: {l.name}</span>
+                  <span className="block text-sm text-ink-2">{l.summary}</span>
+                  <span className="mt-1 block text-sm font-semibold text-accent">Unlock with {PLAN_NAME[l.minPlan]}</span>
+                </Link>
+              );
+          })}
+        </div>
       </section>
 
       <section className="mt-6">
         <h2 className="label">How do you want to answer?</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Choice selected={mode === "voice"} onClick={() => voiceOk && setMode("voice")} title="Speak" desc={voiceOk ? "Closest to the real thing. Measures your pace and fillers." : "Not available in this browser. Please use Chrome or Edge."} />
+          <Choice selected={mode === "voice"} onClick={() => voiceOk && setMode("voice")} title="Live call" desc={voiceOk ? "Speak face to face with the interviewer, with your camera if you like. Measures your pace and fillers." : "Not available in this browser. Please use Chrome or Edge."} />
           <Choice selected={mode === "text"} onClick={() => setMode("text")} title="Type" desc="Good for quiet places and for first attempts." />
         </div>
         {mode === "voice" && (
-          <label className="mt-3 flex items-start gap-2 rounded-lg bg-surface-2 p-3 text-sm">
-            <input type="checkbox" className="mt-1 size-4" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-            <span>I agree to use my microphone. Your browser turns speech into text, and may send audio to its speech service (Google for Chrome) to do so. We store only the text. We never receive or record your audio, and video stays off.</span>
-          </label>
+          <div className="mt-3 space-y-3 rounded-lg bg-surface-2 p-3 text-sm">
+            <label className="flex items-start gap-2">
+              <input type="checkbox" className="mt-1 size-4" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+              <span>I agree to use my microphone. Your browser turns speech into text, and may send audio to its speech service (Google for Chrome) to do so. We store only the text. We never receive or record your audio.</span>
+            </label>
+            <label className="flex items-start gap-2">
+              <input type="checkbox" className="mt-1 size-4" checked={camera} onChange={(e) => setCamera(e.target.checked)} />
+              <span>Turn on my camera (optional). It shows you to yourself, like a video call, so you can practise eye contact. Video stays on your device. It is not recorded, uploaded or scored.</span>
+            </label>
+          </div>
         )}
       </section>
 

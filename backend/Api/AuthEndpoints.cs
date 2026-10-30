@@ -24,22 +24,25 @@ public class ReportsHub : Hub;
 
 public class AdminDashboardFilter : IDashboardAuthorizationFilter
 {
-    public bool Authorize(DashboardContext context) => context.GetHttpContext().User.IsInRole(Roles.Admin);
+    public bool Authorize(DashboardContext context) => context.GetHttpContext().User.IsInRole(Roles.SuperAdmin);
 }
 
 public record RegisterRequest(string Email, string Name, string Password, bool AcceptTerms);
 public record LoginRequest(string Email, string Password);
 public record GoogleRequest(string IdToken, bool AcceptTerms);
+public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
 public static class AuthEndpoints
 {
-    private static readonly PasswordHasher<User> Hasher = new();
+    public static readonly PasswordHasher<User> Hasher = new();
+    private const int MaxFailedLogins = 10;
+    private static readonly TimeSpan LockoutTime = TimeSpan.FromMinutes(15);
 
     public static void MapAuthEndpoints(this WebApplication app)
     {
         var g = app.MapGroup("/api/auth").RequireRateLimiting("auth");
 
-        g.MapPost("/register", async (RegisterRequest r, AppDbContext db, HttpContext ctx, IConfiguration config) =>
+        g.MapPost("/register", async (RegisterRequest r, AppDbContext db, HttpContext ctx) =>
         {
             var email = r.Email?.Trim().ToLowerInvariant() ?? "";
             if (!MailAddress.TryCreate(email, out _)) return Http.Problem(400, "Please enter a valid email address.");
@@ -48,7 +51,7 @@ public static class AuthEndpoints
             if (!r.AcceptTerms) return Http.Problem(400, "Please accept the terms and privacy notice to continue.");
             if (await db.Users.AnyAsync(u => u.Email == email)) return Http.Problem(409, "An account with this email already exists.");
 
-            var user = new User { Email = email, Name = r.Name.Trim(), TermsAcceptedAt = DateTime.UtcNow, Role = RoleFor(email, config) };
+            var user = new User { Email = email, Name = r.Name.Trim(), TermsAcceptedAt = DateTime.UtcNow, LastLoginAt = DateTime.UtcNow };
             user.PasswordHash = Hasher.HashPassword(user, r.Password);
             db.Users.Add(user);
             db.Profiles.Add(new Profile { UserId = user.Id });
@@ -62,8 +65,24 @@ public static class AuthEndpoints
             var email = r.Email?.Trim().ToLowerInvariant() ?? "";
             var user = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
             // Same message for unknown email and wrong password, so accounts cannot be enumerated.
-            if (user?.PasswordHash is null || Hasher.VerifyHashedPassword(user, user.PasswordHash, r.Password ?? "") == PasswordVerificationResult.Failed)
+            if (user?.PasswordHash is null) return Http.Problem(401, "Incorrect email or password.");
+            if (user.LockedUntil > DateTime.UtcNow) return Http.Problem(429, "Too many failed attempts. Please try again in 15 minutes.");
+            if (Hasher.VerifyHashedPassword(user, user.PasswordHash, r.Password ?? "") == PasswordVerificationResult.Failed)
+            {
+                user.FailedLogins++;
+                if (user.FailedLogins >= MaxFailedLogins)
+                {
+                    user.LockedUntil = DateTime.UtcNow.Add(LockoutTime);
+                    user.FailedLogins = 0;
+                }
+                await db.SaveChangesAsync();
                 return Http.Problem(401, "Incorrect email or password.");
+            }
+            if (user.IsDisabled) return Http.Problem(403, "This account has been disabled. Please contact support.");
+            user.FailedLogins = 0;
+            user.LockedUntil = null;
+            user.LastLoginAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
             await SignInAsync(ctx, user);
             return Results.Ok(Dto(user));
         });
@@ -89,14 +108,16 @@ public static class AuthEndpoints
             if (user is null)
             {
                 if (!r.AcceptTerms) return Http.Problem(400, "Please accept the terms and privacy notice to continue.");
-                user = new User { Email = email, Name = payload.Name ?? email, GoogleSubject = payload.Subject, TermsAcceptedAt = DateTime.UtcNow, Role = RoleFor(email, config) };
+                user = new User { Email = email, Name = payload.Name ?? email, GoogleSubject = payload.Subject, TermsAcceptedAt = DateTime.UtcNow };
                 db.Users.Add(user);
                 db.Profiles.Add(new Profile { UserId = user.Id });
             }
             else
             {
+                if (user.IsDisabled) return Http.Problem(403, "This account has been disabled. Please contact support.");
                 user.GoogleSubject ??= payload.Subject;
             }
+            user.LastLoginAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
             await SignInAsync(ctx, user);
             return Results.Ok(Dto(user));
@@ -113,17 +134,47 @@ public static class AuthEndpoints
             googleClientId = config["Google:ClientId"],
             aiEnabled = ai.Enabled,
             billingEnabled = billing.Enabled,
-            proPricePaise = billing.ProPricePaise,
+        }));
+
+        app.MapGet("/api/plans", (InterviewService service, BillingOptions billing) => Results.Ok(new
+        {
+            plans = Plans.All.Select(id => new
+            {
+                id,
+                pricePaise = id == Plans.Free ? 0 : billing.PriceFor(id),
+                days = billing.ProDays,
+                interviewsPerMonth = service.MonthlyLimit(id),
+                levels = Levels.All.Where(l => InterviewService.PlanAllowsLevel(id, l.Id)).Select(l => l.Id),
+            }),
+            levels = Levels.All.Select(l => new { l.Id, l.Name, l.Summary, l.Minutes, l.MinPlan }),
         }));
 
         var me = app.MapGroup("/api/me").RequireAuthorization();
 
-        me.MapGet("/", async (ClaimsPrincipal p, AppDbContext db) =>
+        me.MapGet("/", async (ClaimsPrincipal p, AppDbContext db, InterviewService service) =>
+        {
+            var id = p.UserId();
+            var user = await db.Users.AsNoTracking().FirstAsync(u => u.Id == id);
+            user.Plan = await service.EffectivePlanAsync(id);
+            return Results.Ok(Dto(user));
+        });
+
+        me.MapPost("/password", async (ChangePasswordRequest r, ClaimsPrincipal p, AppDbContext db, HttpContext ctx) =>
         {
             var id = p.UserId();
             var user = await db.Users.FirstAsync(u => u.Id == id);
-            return Results.Ok(Dto(user));
-        });
+            if (user.PasswordHash is null) return Http.Problem(400, "This account signs in with Google, so it has no password to change.");
+            if (Hasher.VerifyHashedPassword(user, user.PasswordHash, r.CurrentPassword ?? "") == PasswordVerificationResult.Failed)
+                return Http.Problem(400, "Your current password is not correct.");
+            if (r.NewPassword is null || r.NewPassword.Length < 8) return Http.Problem(400, "New password must be at least 8 characters.");
+            user.PasswordHash = Hasher.HashPassword(user, r.NewPassword);
+            user.MustChangePassword = false;
+            user.SecurityStamp = Guid.NewGuid();
+            await db.SaveChangesAsync();
+            // Other devices are signed out by the new stamp; this one stays signed in.
+            await SignInAsync(ctx, user);
+            return Results.NoContent();
+        }).RequireRateLimiting("auth");
 
         // DPDP/GDPR: everything we hold about the user, in one download.
         me.MapGet("/export", async (ClaimsPrincipal p, AppDbContext db) =>
@@ -156,6 +207,9 @@ public static class AuthEndpoints
         me.MapDelete("/", async (ClaimsPrincipal p, AppDbContext db, HttpContext ctx) =>
         {
             var id = p.UserId();
+            var role = await db.Users.Where(u => u.Id == id).Select(u => u.Role).FirstAsync();
+            if (role == Roles.SuperAdmin && await db.Users.CountAsync(u => u.Role == Roles.SuperAdmin && !u.IsDisabled) <= 1)
+                return Http.Problem(409, "You are the only super admin. Please appoint another one first.");
             // Cascades remove profile, sessions, turns, reports and plans; billing records are unlinked and kept.
             await db.Users.Where(u => u.Id == id).ExecuteDeleteAsync();
             await ctx.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
@@ -163,11 +217,7 @@ public static class AuthEndpoints
         });
     }
 
-    private static string RoleFor(string email, IConfiguration config)
-    {
-        var admins = config.GetSection("Admin:Emails").Get<string[]>() ?? [];
-        return admins.Contains(email, StringComparer.OrdinalIgnoreCase) ? Roles.Admin : Roles.Candidate;
-    }
+    public const string StampClaim = "stamp";
 
     private static async Task SignInAsync(HttpContext ctx, User user)
     {
@@ -175,9 +225,10 @@ public static class AuthEndpoints
         [
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(ClaimTypes.Role, user.Role),
+            new Claim(StampClaim, user.SecurityStamp.ToString()),
         ], CookieAuthenticationDefaults.AuthenticationScheme);
         await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
     }
 
-    private static object Dto(User u) => new { u.Id, u.Email, u.Name, u.Role, u.Plan };
+    private static object Dto(User u) => new { u.Id, u.Email, u.Name, u.Role, u.Plan, u.MustChangePassword };
 }

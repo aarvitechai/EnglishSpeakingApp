@@ -1,13 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const heading = Fraunces({ subsets: ["latin"], variable: "--font-heading", display: "swap" });
+const heading = Plus_Jakarta_Sans({ subsets: ["latin"], variable: "--font-heading", display: "swap" });
 const body = Inter({ subsets: ["latin"], variable: "--font-body", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Pratibha: AI interview practice",
+  title: "NeuroTara: AI interview practice",
   description: "Practise HR, behavioural and technical interviews out loud, and get feedback that quotes what you actually said.",
+  icons: { apple: "/brand/icon-192.png" },
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1 };

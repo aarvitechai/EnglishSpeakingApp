@@ -32,7 +32,9 @@ public class ScriptedInterviewer : IInterviewerAi
             return $"Hello, thanks for joining. I'll be your interviewer for this {Label(c.Category)} practice round. Let's begin. {next}";
 
         if (NeedsFollowUp(c, asked))
-            return FollowUp(c.History.Last(h => h.Speaker == Speakers.Candidate).Text);
+            return c.Difficulty == "1"
+                ? "Good try. Can you say one more sentence about that? Take your time."
+                : FollowUp(c.History.Last(h => h.Speaker == Speakers.Candidate).Text);
 
         return $"Thanks. Next question: {next}";
     }
@@ -43,7 +45,13 @@ public class ScriptedInterviewer : IInterviewerAi
         // One follow-up per question at most: the previous interviewer line must be a plan question.
         if (!c.PlanQuestions.Any(q => asked[^1].Contains(q, StringComparison.Ordinal))) return false;
         var answer = c.History[^1].Text;
-        return DeliveryCalculator.CountWords(answer) < 40 || (c.Difficulty != "easy" && !Regex.IsMatch(answer, @"\d"));
+        int words = DeliveryCalculator.CountWords(answer);
+        return c.Difficulty switch
+        {
+            "1" => words < 5,
+            "2" => words < 40,
+            _ => words < 40 || !Regex.IsMatch(answer, @"\d"),
+        };
     }
 
     private static string FollowUp(string answer)

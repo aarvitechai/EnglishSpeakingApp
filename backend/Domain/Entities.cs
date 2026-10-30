@@ -7,12 +7,16 @@ public static class Roles
     public const string Candidate = "candidate";
     public const string OrgAdmin = "org_admin";
     public const string Admin = "admin";
+    public const string SuperAdmin = "super_admin";
 }
 
 public static class Plans
 {
     public const string Free = "free";
+    public const string Plus = "plus";
     public const string Pro = "pro";
+    public static readonly string[] All = [Free, Plus, Pro];
+    public static int Rank(string plan) => Array.IndexOf(All, plan);
 }
 
 public static class Categories
@@ -23,9 +27,28 @@ public static class Categories
     public static readonly string[] All = [Hr, Behavioural, Technical];
 }
 
-public static class Difficulties
+public record LevelInfo(string Id, string Name, string Summary, int Minutes, string MinPlan, string Persona);
+
+/// <summary>The five interview levels, from no experience at all to expert. Stored in Difficulty as "1" to "5".</summary>
+public static class Levels
 {
-    public static readonly string[] All = ["easy", "medium", "hard"];
+    public static readonly LevelInfo[] All =
+    [
+        new("1", "Zero", "Never given an interview? Start here, with simple questions and a hint for each one.", 10, Plans.Free,
+            "Very patient, kind mentor for a complete beginner with no interview experience. Uses short sentences and simple words, and encourages the candidate after every answer."),
+        new("2", "Beginner", "The common questions every fresher gets, with a friendly interviewer.", 10, Plans.Free,
+            "Warm and encouraging campus recruiter. Puts the candidate at ease and keeps follow-ups gentle."),
+        new("3", "Intermediate", "A realistic round that asks for specifics when answers are vague.", 15, Plans.Plus,
+            "Professional, neutral hiring manager. Polite, and asks for specifics when answers are vague."),
+        new("4", "Advanced", "Tough questions and probing follow-ups, like a final round.", 20, Plans.Plus,
+            "Demanding senior interviewer. Respectful but probes assumptions and challenges weak reasoning."),
+        new("5", "Expert", "A panel-level grilling on judgement, trade-offs and depth.", 25, Plans.Pro,
+            "Senior panel chair at a top employer. Courteous but relentless: tests every claim, raises counter-arguments and expects structured, nuanced answers."),
+    ];
+
+    public static LevelInfo? Find(string id) => All.FirstOrDefault(l => l.Id == id);
+
+    public static string Label(string id) => Find(id) is { } l ? $"Level {l.Id} of 5 ({l.Name})" : id;
 }
 
 public static class SessionStatus
@@ -60,6 +83,7 @@ public static class SubscriptionStatus
 {
     public const string Pending = "pending";
     public const string Active = "active";
+    public const string Cancelled = "cancelled";
 }
 
 public class User
@@ -75,6 +99,13 @@ public class User
     public string? GoogleSubject { get; set; }
     public DateTime TermsAcceptedAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? LastLoginAt { get; set; }
+    public bool IsDisabled { get; set; }
+    public bool MustChangePassword { get; set; }
+    public int FailedLogins { get; set; }
+    public DateTime? LockedUntil { get; set; }
+    /// <summary>Changing this signs the user out everywhere: done on password, role and status changes.</summary>
+    public Guid SecurityStamp { get; set; } = Guid.NewGuid();
     public Profile? Profile { get; set; }
 }
 
@@ -123,6 +154,8 @@ public class Question
     public required string Difficulty { get; set; }
     public required string Text { get; set; }
     public string Tags { get; set; } = "";
+    /// <summary>A sentence starter shown to complete beginners at level 1.</summary>
+    public string? Hint { get; set; }
     public SqlVector<float>? Embedding { get; set; }
 }
 
@@ -218,5 +251,18 @@ public class Payment
     public required string ProviderRef { get; set; }
     public string? ProviderPaymentId { get; set; }
     public string Status { get; set; } = PaymentStatus.Created;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+/// <summary>Who did what in the admin area. Deliberately has no foreign keys, so it outlives the accounts it names.</summary>
+public class AuditLog
+{
+    public long Id { get; set; }
+    public Guid ActorId { get; set; }
+    public required string ActorEmail { get; set; }
+    public required string Action { get; set; }
+    public Guid? TargetUserId { get; set; }
+    public string? TargetEmail { get; set; }
+    public string? Detail { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

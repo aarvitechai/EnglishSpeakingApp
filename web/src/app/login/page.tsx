@@ -4,7 +4,7 @@ import Link from "next/link";
 import Script from "next/script";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
-import { api, type AppConfig } from "@/lib/api";
+import { api, homeFor, type AppConfig, type Me } from "@/lib/api";
 import { ErrorNote, errorText, Logo } from "@/components/shell";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -30,8 +30,8 @@ function LoginForm() {
       client_id: clientId,
       callback: async (r: { credential: string }) => {
         try {
-          await api("/auth/google", { method: "POST", json: { idToken: r.credential, acceptTerms: termsRef.current } });
-          router.replace("/dashboard/");
+          const me = await api<Me>("/auth/google", { method: "POST", json: { idToken: r.credential, acceptTerms: termsRef.current } });
+          router.replace(homeFor(me));
         } catch (e) { setError(errorText(e)); }
       },
     });
@@ -43,8 +43,8 @@ function LoginForm() {
     setBusy(true);
     setError(null);
     try {
-      await api(mode === "login" ? "/auth/login" : "/auth/register", { method: "POST", json: form });
-      router.replace("/dashboard/");
+      const me = await api<Me>(mode === "login" ? "/auth/login" : "/auth/register", { method: "POST", json: form });
+      router.replace(homeFor(me));
     } catch (err) {
       setError(errorText(err));
       setBusy(false);
@@ -87,7 +87,8 @@ function LoginForm() {
           <div className="mt-4" ref={googleRef} />
         </>
       )}
-      <button className="mt-6 cursor-pointer text-sm underline" onClick={() => { setMode(register ? "login" : "register"); setError(null); }}>
+      {!register && <p className="mt-4 text-sm text-ink-2">Forgot your password? Please contact support and an admin will reset it.</p>}
+      <button className="mt-4 cursor-pointer text-sm underline" onClick={() => { setMode(register ? "login" : "register"); setError(null); }}>
         {register ? "Already have an account? Sign in" : "New here? Create an account"}
       </button>
     </div>

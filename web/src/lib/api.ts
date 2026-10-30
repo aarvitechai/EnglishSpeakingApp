@@ -65,14 +65,17 @@ export async function streamTurn(path: string, body: unknown, onDelta: (text: st
   return { ended };
 }
 
-export type Me = { id: string; email: string; name: string; role: string; plan: string };
-export type AppConfig = { googleClientId: string | null; aiEnabled: boolean; billingEnabled: boolean; proPricePaise: number };
+export type Me = { id: string; email: string; name: string; role: string; plan: string; mustChangePassword: boolean };
+export type AppConfig = { googleClientId: string | null; aiEnabled: boolean; billingEnabled: boolean };
+export type PlanInfo = { id: string; pricePaise: number; days: number; interviewsPerMonth: number; levels: string[] };
+export type LevelInfo = { id: string; name: string; summary: string; minutes: number; minPlan: string };
+export type Catalog = { plans: PlanInfo[]; levels: LevelInfo[] };
 export type Turn = { seq: number; speaker: "interviewer" | "candidate"; text: string; startMs: number | null; endMs: number | null };
 export type Session = {
   id: string; status: string; mode: "text" | "voice"; createdAt: string; failureReason: string | null;
-  category: string; difficulty: string; durationMin: number; turns: Turn[];
+  category: string; level: string; durationMin: number; turns: Turn[];
 };
-export type SessionRow = { id: string; status: string; mode: string; createdAt: string; category: string; difficulty: string; score: number | null };
+export type SessionRow = { id: string; status: string; mode: string; createdAt: string; category: string; level: string; score: number | null };
 export type Improvement = { skill: string; title: string; seq: number; quote: string; why: string; rewrite: string; drills: string[] };
 export type Report = {
   session: Session;
@@ -87,12 +90,19 @@ export type Report = {
   delivery: null | { wpm: number | null; fillerCount: number; longPauses: number; talkRatio: number; avgAnswerSec: number | null; avgAnswerWords: number };
 };
 export type Progress = {
-  plan: string; used: number; limit: number;
+  plan: string; renewsAt: string | null; used: number; limit: number;
   sessions: { id: string; createdAt: string; category: string; score: number }[];
   skills: { name: string; count: number; first: number; latest: number }[];
 };
 export type PracticePlan = { id: string; skill: string; status: string; dueDate: string; sourceSessionId: string | null; drills: string[] };
 export type ProfileDto = { targetRole: string | null; experienceLevel: string | null; resumeFileName: string | null; resumeSkills: string[] };
 
+export const LEVEL_NAME: Record<string, string> = { "1": "Zero", "2": "Beginner", "3": "Intermediate", "4": "Advanced", "5": "Expert" };
+export const levelLabel = (id: string) => `Level ${id}: ${LEVEL_NAME[id] ?? id}`;
+export const PLAN_NAME: Record<string, string> = { free: "Free", plus: "Plus", pro: "Pro" };
+export const isStaff = (role?: string) => role === "admin" || role === "super_admin";
+export const homeFor = (me: Pick<Me, "role" | "mustChangePassword">) =>
+  me.mustChangePassword ? "/settings/?change=1" : isStaff(me.role) ? "/admin/" : "/dashboard/";
+export const rupees = (paise: number) => `₹${(paise / 100).toLocaleString("en-IN")}`;
 export const CATEGORY_LABEL: Record<string, string> = { hr: "HR", behavioural: "Behavioural", technical: "Technical" };
 export const prettyDate = (s: string) => new Date(s).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });

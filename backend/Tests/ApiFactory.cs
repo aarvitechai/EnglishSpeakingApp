@@ -8,6 +8,8 @@ namespace Tests;
 /// <summary>Runs the real app, including Hangfire, against a throwaway database on the dev SQL Server.</summary>
 public class ApiFactory : WebApplicationFactory<Program>
 {
+    public const string SuperAdminEmail = "root@example.com";
+    public const string SuperAdminPassword = "bootstrap-password-for-tests";
     public const string RazorpaySecret = "test_key_secret";
     public const string RazorpayWebhookSecret = "test_webhook_secret";
 
@@ -28,7 +30,8 @@ public class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Billing:KeyId", "rzp_test");
         builder.UseSetting("Billing:KeySecret", RazorpaySecret);
         builder.UseSetting("Billing:WebhookSecret", RazorpayWebhookSecret);
-        builder.UseSetting("Admin:Emails:0", "admin@example.com");
+        builder.UseSetting("SuperAdmin:Email", SuperAdminEmail);
+        builder.UseSetting("SuperAdmin:Password", SuperAdminPassword);
         builder.ConfigureServices(s =>
         {
             s.AddSingleton<IPaymentGateway, FakeGateway>();

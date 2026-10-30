@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #f7f4ee;
-  --surface: #fffdf9;
-  --surface-2: #efeadf;
-  --ink: #1c1b18;
-  --ink-2: #57544c;
-  --ink-3: #7a766b;
-  --line: #ddd7c9;
-  --accent: #0f5c4d;
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --surface-2: #eeeef1;
+  --ink: #15171b;
+  --ink-2: #50535b;
+  --ink-3: #6c6f78;
+  --line: #dcdde2;
+  --accent: #be1a2e;
   --accent-ink: #ffffff;
-  --accent-soft: #dcebe5;
-  --mark: #fbe9b7;
+  --accent-soft: #fbe6e8;
+  --mark: #fde7c2;
   --warn: #8a4b08;
   --warn-soft: #fbeedb;
   --danger: #a4262c;
@@ -21,16 +21,16 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #15160f;
-    --surface: #1f201a;
-    --surface-2: #2a2b23;
-    --ink: #f1efe7;
-    --ink-2: #c3c1b5;
-    --ink-3: #9c9a8d;
-    --line: #3a3b31;
-    --accent: #5fc4ad;
-    --accent-ink: #08221c;
-    --accent-soft: #1d3a33;
+    --bg: #111216;
+    --surface: #1a1c21;
+    --surface-2: #26282f;
+    --ink: #f1f2f4;
+    --ink-2: #c2c4cb;
+    --ink-3: #9a9ca5;
+    --line: #363842;
+    --accent: #f4707f;
+    --accent-ink: #220508;
+    --accent-soft: #3b1a1f;
     --mark: #54461a;
     --warn: #eeb872;
     --warn-soft: #3b2c15;
@@ -56,7 +56,7 @@
   --color-warn-soft: var(--warn-soft);
   --color-danger: var(--danger);
   --font-sans: var(--font-body), system-ui, sans-serif;
-  --font-display: var(--font-heading), Georgia, serif;
+  --font-display: var(--font-heading), system-ui, sans-serif;
 }
 
 body {
@@ -65,7 +65,7 @@ body {
   font-family: var(--font-body), system-ui, sans-serif;
 }
 
-h1, h2, h3 { font-family: var(--font-heading), Georgia, serif; letter-spacing: -0.01em; }
+h1, h2, h3 { font-family: var(--font-heading), system-ui, sans-serif; letter-spacing: -0.02em; font-weight: 700; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
@@ -94,3 +94,11 @@ mark { background: var(--mark); color: inherit; padding: 0 0.15em; border-radius
   border: 2px solid var(--accent); animation: pulse-ring 1.6s ease-out infinite;
 }
 @media (prefers-reduced-motion: reduce) { .listening::after { animation: none; } }
+
+@keyframes avatar-talk { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(3.4); } }
+@keyframes avatar-blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(0.1); } }
+@keyframes avatar-tilt { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(2deg); } }
+.avatar-mouth-talk { transform-box: fill-box; transform-origin: center; animation: avatar-talk 0.28s ease-in-out infinite; }
+.avatar-eyes { transform-box: fill-box; transform-origin: center; animation: avatar-blink 4s linear infinite; }
+.avatar-thinking { animation: avatar-tilt 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .avatar-mouth-talk, .avatar-eyes, .avatar-thinking { animation: none; } }

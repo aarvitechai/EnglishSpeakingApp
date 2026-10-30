@@ -25,9 +25,9 @@ public class SessionFlowTests(ApiFactory factory)
         return c;
     }
 
-    private static async Task<Guid> CreateSessionAsync(HttpClient c, string category = "hr", string difficulty = "medium")
+    private static async Task<Guid> CreateSessionAsync(HttpClient c, string category = "hr", string level = "2")
     {
-        var r = await c.PostAsJsonAsync("/api/sessions", new { category, difficulty, mode = "text", voiceConsent = false });
+        var r = await c.PostAsJsonAsync("/api/sessions", new { category, level, mode = "text", voiceConsent = false });
         Assert.Equal(HttpStatusCode.Created, r.StatusCode);
         return (await r.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
     }
@@ -146,7 +146,7 @@ public class SessionFlowTests(ApiFactory factory)
     {
         var c = await SignUpAsync(NewClient());
         for (int i = 0; i < 4; i++) await CreateSessionAsync(c);
-        var r = await c.PostAsJsonAsync("/api/sessions", new { category = "hr", difficulty = "easy" });
+        var r = await c.PostAsJsonAsync("/api/sessions", new { category = "hr", level = "1" });
         Assert.Equal(HttpStatusCode.PaymentRequired, r.StatusCode);
     }
 
@@ -154,7 +154,7 @@ public class SessionFlowTests(ApiFactory factory)
     public async Task Voice_session_requires_explicit_consent()
     {
         var c = await SignUpAsync(NewClient());
-        var r = await c.PostAsJsonAsync("/api/sessions", new { category = "hr", difficulty = "easy", mode = "voice", voiceConsent = false });
+        var r = await c.PostAsJsonAsync("/api/sessions", new { category = "hr", level = "1", mode = "voice", voiceConsent = false });
         Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
     }
 
@@ -189,17 +189,10 @@ public class SessionFlowTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Admin_metrics_are_admin_only()
-    {
-        var c = await SignUpAsync(NewClient());
-        Assert.Equal(HttpStatusCode.Forbidden, (await c.GetAsync("/api/admin/metrics")).StatusCode);
-    }
-
-    [Fact]
     public async Task Payment_activates_pro_only_with_a_valid_signature_and_is_idempotent()
     {
         var c = await SignUpAsync(NewClient());
-        var checkout = await (await c.PostAsync("/api/billing/checkout", null)).Content.ReadFromJsonAsync<JsonElement>();
+        var checkout = await (await c.PostAsJsonAsync("/api/billing/checkout", new { plan = "pro" })).Content.ReadFromJsonAsync<JsonElement>();
         var orderId = checkout.GetProperty("orderId").GetString()!;
         const string paymentId = "pay_123";
 

@@ -29,13 +29,21 @@ public partial class InterviewService(
     public async Task<string> EffectivePlanAsync(Guid userId, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
-        bool active = await db.Subscriptions.AnyAsync(s => s.UserId == userId && s.Status == SubscriptionStatus.Active && s.RenewsAt > now, ct);
-        return active ? Plans.Pro : Plans.Free;
+        var active = await db.Subscriptions
+            .Where(s => s.UserId == userId && s.Status == SubscriptionStatus.Active && s.RenewsAt > now)
+            .Select(s => s.Plan).ToListAsync(ct);
+        return active.OrderByDescending(Plans.Rank).FirstOrDefault() ?? Plans.Free;
     }
 
-    public int MonthlyLimit(string plan) => plan == Plans.Pro
-        ? config.GetValue("Quotas:ProPerMonth", 100)
-        : config.GetValue("Quotas:FreePerMonth", 5);
+    public int MonthlyLimit(string plan) => plan switch
+    {
+        Plans.Pro => config.GetValue("Quotas:ProPerMonth", 100),
+        Plans.Plus => config.GetValue("Quotas:PlusPerMonth", 30),
+        _ => config.GetValue("Quotas:FreePerMonth", 5),
+    };
+
+    public static bool PlanAllowsLevel(string plan, string level) =>
+        Levels.Find(level) is { } l && Plans.Rank(plan) >= Plans.Rank(l.MinPlan);
 
     public async Task<int> UsedThisMonthAsync(Guid userId, CancellationToken ct = default)
     {
@@ -46,6 +54,8 @@ public partial class InterviewService(
     public async Task<Session> CreateAsync(Guid userId, InterviewTemplate template, string? jobDescription, string mode, bool voiceConsent, CancellationToken ct)
     {
         var plan = await EffectivePlanAsync(userId, ct);
+        if (!PlanAllowsLevel(plan, template.Difficulty))
+            throw new QuotaExceededException($"Level {template.Difficulty} is not included in your plan. Please upgrade to unlock it.");
         if (await UsedThisMonthAsync(userId, ct) >= MonthlyLimit(plan))
             throw new QuotaExceededException($"You have used all {MonthLimitLabel(plan)} interviews for this month.");
 
@@ -102,7 +112,7 @@ public partial class InterviewService(
 
         // A warm start for HR interviews, which nearly always open with an introduction.
         const string opener = "Tell me about yourself.";
-        if (t is { Category: Categories.Hr, Difficulty: "easy" } && !recent.Contains(opener))
+        if (t is { Category: Categories.Hr, Difficulty: "2" } && !recent.Contains(opener))
         {
             ranked.Remove(opener);
             ranked.Insert(0, opener);

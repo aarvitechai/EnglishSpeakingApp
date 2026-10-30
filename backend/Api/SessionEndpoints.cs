@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Api;
 
-public record CreateSessionRequest(string Category, string Difficulty, string? JobDescription, string? Mode, bool VoiceConsent);
+public record CreateSessionRequest(string Category, string Level, string? JobDescription, string? Mode, bool VoiceConsent);
 public record MessageRequest(string Text, int? StartMs, int? EndMs, int? LongPauses);
 public record FeedbackRatingRequest(int Rating);
 
@@ -19,14 +19,14 @@ public static class SessionEndpoints
     {
         app.MapGet("/api/templates", async (AppDbContext db) =>
             Results.Ok(await db.InterviewTemplates.AsNoTracking()
-                .Select(t => new { t.Id, t.Category, t.Difficulty, t.DurationMin }).ToListAsync()));
+                .Select(t => new { t.Id, t.Category, level = t.Difficulty, t.DurationMin }).ToListAsync()));
 
         var g = app.MapGroup("/api/sessions").RequireAuthorization();
 
         g.MapPost("/", async (CreateSessionRequest r, ClaimsPrincipal p, AppDbContext db, InterviewService service, CancellationToken ct) =>
         {
-            var template = await db.InterviewTemplates.AsNoTracking().FirstOrDefaultAsync(t => t.Category == r.Category && t.Difficulty == r.Difficulty, ct);
-            if (template is null) return Http.Problem(400, "Please choose a valid category and difficulty.");
+            var template = await db.InterviewTemplates.AsNoTracking().FirstOrDefaultAsync(t => t.Category == r.Category && t.Difficulty == r.Level, ct);
+            if (template is null) return Http.Problem(400, "Please choose a valid round and level.");
             if (r.JobDescription?.Length > InterviewService.MaxJobDescriptionChars) return Http.Problem(400, "Job description is too long (8,000 characters at most).");
             var mode = r.Mode == SessionModes.Voice ? SessionModes.Voice : SessionModes.Text;
             if (mode == SessionModes.Voice && !r.VoiceConsent) return Http.Problem(400, "Please agree to microphone use to start a voice interview.");
@@ -51,7 +51,7 @@ public static class SessionEndpoints
                 join e in db.Evaluations on s.Id equals e.SessionId into evals
                 from e in evals.DefaultIfEmpty()
                 orderby s.CreatedAt descending
-                select new { s.Id, s.Status, s.Mode, s.CreatedAt, s.Template!.Category, s.Template.Difficulty, score = (int?)e.OverallScore })
+                select new { s.Id, s.Status, s.Mode, s.CreatedAt, s.Template!.Category, level = s.Template.Difficulty, score = (int?)e.OverallScore })
                 .Take(100).ToListAsync();
             return Results.Ok(rows);
         });
@@ -59,7 +59,17 @@ public static class SessionEndpoints
         g.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal p, AppDbContext db) =>
         {
             var s = await LoadAsync(db, id, p.UserId());
-            return s is null ? Results.NotFound() : Results.Ok(SessionDto(s));
+            if (s is null) return Results.NotFound();
+            // Level 1 candidates get a sentence starter with each question.
+            var hints = new Dictionary<string, string>();
+            if (s.Template?.Difficulty == "1")
+            {
+                var plan = JsonSerializer.Deserialize<List<string>>(s.PlanJson, Web) ?? [];
+                hints = await db.Questions.AsNoTracking()
+                    .Where(q => q.Hint != null && plan.Contains(q.Text))
+                    .ToDictionaryAsync(q => q.Text, q => q.Hint!);
+            }
+            return Results.Ok(new { session = SessionDto(s), hints });
         });
 
         g.MapPost("/{id:guid}/start", async (Guid id, ClaimsPrincipal p, AppDbContext db, InterviewService service, HttpContext ctx) =>
@@ -190,7 +200,7 @@ public static class SessionEndpoints
         s.EndedAt,
         s.FailureReason,
         category = s.Template?.Category,
-        difficulty = s.Template?.Difficulty,
+        level = s.Template?.Difficulty,
         durationMin = s.Template?.DurationMin,
         turns = s.Turns.OrderBy(t => t.Seq).Select(t => new { t.Seq, t.Speaker, t.Text, t.StartMs, t.EndMs }),
     };

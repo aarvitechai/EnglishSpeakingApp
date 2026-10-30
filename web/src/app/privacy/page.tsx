@@ -1,6 +1,6 @@
 import { Logo } from "@/components/shell";
 
-export const metadata = { title: "Privacy and terms: Pratibha" };
+export const metadata = { title: "Privacy and terms: NeuroTara" };
 
 export default function Privacy() {
   return (
@@ -16,10 +16,15 @@ export default function Privacy() {
         <section>
           <h2 className="text-xl font-semibold">Your voice</h2>
           <p className="mt-1 text-ink-2">We only use your microphone after you agree. Your browser converts speech to text and may send audio to its own speech service (Google, in Chrome). We receive the text only. We do not record audio or video.</p>
+          <p className="mt-2 text-ink-2">The camera is optional and off by default. If you turn it on, the picture is shown only to you on your own device. It is never uploaded, stored or scored.</p>
         </section>
         <section>
           <h2 className="text-xl font-semibold">Who processes your data</h2>
           <p className="mt-1 text-ink-2">When AI features are on, your transcript, resume text and job description are sent to Anthropic to generate questions and feedback. Payments are handled by Razorpay, and we never see your card or UPI details.</p>
+        </section>
+        <section>
+          <h2 className="text-xl font-semibold">Staff access</h2>
+          <p className="mt-1 text-ink-2">Our admins can see your name, email, plan, and how many interviews you have taken, so they can help you. They cannot read your transcripts or resume through the admin console.</p>
         </section>
         <section>
           <h2 className="text-xl font-semibold">Your choices</h2>

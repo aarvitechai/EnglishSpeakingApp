@@ -83,7 +83,7 @@ public class AggregationTests
 
 public class ScriptedInterviewerTests
 {
-    private static InterviewContext Ctx(params HistoryItem[] history) => new("hr", "medium", "p", ["Q one?", "Q two?"], null, null, null, history, history.Count(h => h.Speaker == Speakers.Candidate), 4);
+    private static InterviewContext Ctx(params HistoryItem[] history) => new("hr", "3", "p", ["Q one?", "Q two?"], null, null, null, history, history.Count(h => h.Speaker == Speakers.Candidate), 4);
 
     [Fact]
     public void Follows_up_once_on_a_vague_answer_using_the_candidates_words_then_moves_on()

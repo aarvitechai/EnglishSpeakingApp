@@ -1,14 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { api, ApiError, type Me } from "@/lib/api";
+import { api, ApiError, isStaff, type Me } from "@/lib/api";
 
-export function Logo() {
+export function Logo({ size = 30 }: { size?: number }) {
   return (
-    <Link href="/" className="font-display text-xl font-semibold text-ink" style={{ fontFamily: "var(--font-heading)" }}>
-      Pratibha
+    <Link href="/" aria-label="NeuroTara home" className="inline-block">
+      <picture>
+        <source srcSet="/brand/logo-dark.png" media="(prefers-color-scheme: dark)" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/logo-light.png" alt="NeuroTara" style={{ height: size, width: "auto" }} />
+      </picture>
     </Link>
   );
 }
@@ -16,12 +20,17 @@ export function Logo() {
 /** Loads the signed-in user, sending anyone else to the login page. */
 export function useMe() {
   const router = useRouter();
+  const path = usePathname();
   const [me, setMe] = useState<Me | null>(null);
   useEffect(() => {
-    api<Me>("/me/").then(setMe).catch((e) => {
+    api<Me>("/me/").then((user) => {
+      // A temporary password must be replaced before anything else.
+      if (user.mustChangePassword && !path.startsWith("/settings")) router.replace("/settings/?change=1");
+      setMe(user);
+    }).catch((e) => {
       if (e instanceof ApiError && e.status === 401) router.replace("/login/");
     });
-  }, [router]);
+  }, [router, path]);
   return me;
 }
 
@@ -39,6 +48,8 @@ export function AppShell({ children, wide }: { children: React.ReactNode; wide?:
           <Logo />
           <nav className="flex items-center gap-4 text-sm font-medium">
             <Link href="/dashboard/" className="py-2 hover:underline">Dashboard</Link>
+            <Link href="/pricing/" className="py-2 hover:underline">Plans</Link>
+            {isStaff(me?.role) && <Link href="/admin/" className="py-2 hover:underline">Admin</Link>}
             <Link href="/settings/" className="py-2 hover:underline">Settings</Link>
             <button onClick={logout} className="cursor-pointer py-2 text-ink-2 hover:underline">Sign out</button>
           </nav>

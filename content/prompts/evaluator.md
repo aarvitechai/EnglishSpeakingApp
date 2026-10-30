@@ -8,6 +8,7 @@ Scoring:
 - For each score, set evidence to a short exact quote from that answer that justifies it. Copy the words exactly as written, including any speech-recognition mistakes.
 - Answers may come from speech recognition. Do not penalise transcription errors, accent, grammar slips typical of a second-language speaker, or the candidate's college or background. Judge the substance and structure of what they said.
 - Do not count fillers, words or pace. Those are measured separately.
+- Judge against the stated level. A short honest answer can score well at level 1 and poorly at level 5. At level 1, write all feedback in very simple English and suggest only one small step at a time.
 
 Feedback:
 - improvements: the three changes that would raise this candidate's scores the most, most valuable first. Each needs the answer's seq, an exact quote from that answer, why it matters to an interviewer, a concrete rewrite of what they said that uses only facts from their answer plus clearly marked [placeholders] for details they must supply, and two or three short drills they can do today.

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Api;
 
+public record CheckoutRequest(string Plan);
 public record VerifyPaymentRequest(string OrderId, string PaymentId, string Signature);
 
 public static class BillingEndpoints
@@ -14,15 +15,17 @@ public static class BillingEndpoints
     {
         var g = app.MapGroup("/api/billing");
 
-        g.MapPost("/checkout", async (ClaimsPrincipal p, AppDbContext db, IPaymentGateway gateway, BillingOptions options, CancellationToken ct) =>
+        g.MapPost("/checkout", async (CheckoutRequest r, ClaimsPrincipal p, AppDbContext db, IPaymentGateway gateway, BillingOptions options, CancellationToken ct) =>
         {
             if (!options.Enabled) return Http.Problem(503, "Payments are not configured.");
-            var subscription = new Subscription { UserId = p.UserId() };
-            var orderId = await gateway.CreateOrderAsync(options.ProPricePaise, subscription.Id.ToString("N")[..32], ct);
-            subscription.Payments.Add(new Payment { AmountPaise = options.ProPricePaise, ProviderRef = orderId });
+            if (r.Plan is not (Plans.Plus or Plans.Pro)) return Http.Problem(400, "Please choose a valid plan.");
+            var amount = options.PriceFor(r.Plan);
+            var subscription = new Subscription { UserId = p.UserId(), Plan = r.Plan };
+            var orderId = await gateway.CreateOrderAsync(amount, subscription.Id.ToString("N")[..32], ct);
+            subscription.Payments.Add(new Payment { AmountPaise = amount, ProviderRef = orderId });
             db.Subscriptions.Add(subscription);
             await db.SaveChangesAsync(ct);
-            return Results.Ok(new { orderId, keyId = options.KeyId, amountPaise = options.ProPricePaise });
+            return Results.Ok(new { orderId, keyId = options.KeyId, amountPaise = amount });
         }).RequireAuthorization().RequireRateLimiting("ai");
 
         // Called by the browser after checkout. The webhook below covers users who close the tab first.
@@ -34,7 +37,7 @@ public static class BillingEndpoints
             var payment = await db.Payments.Include(x => x.Subscription).FirstOrDefaultAsync(x => x.ProviderRef == r.OrderId && x.Subscription!.UserId == owner);
             if (payment is null) return Results.NotFound();
             await ActivateAsync(db, payment, r.PaymentId, options);
-            return Results.Ok(new { plan = Plans.Pro, renewsAt = payment.Subscription!.RenewsAt });
+            return Results.Ok(new { plan = payment.Subscription!.Plan, renewsAt = payment.Subscription!.RenewsAt });
         }).RequireAuthorization();
 
         g.MapPost("/webhook", async (HttpContext ctx, AppDbContext db, BillingOptions options) =>
@@ -63,9 +66,12 @@ public static class BillingEndpoints
         payment.ProviderPaymentId = paymentId;
         var subscription = payment.Subscription!;
         subscription.Status = SubscriptionStatus.Active;
-        subscription.RenewsAt = DateTime.UtcNow.AddDays(options.ProDays);
-        if (subscription.UserId is { } userId)
-            await db.Users.Where(u => u.Id == userId).ExecuteUpdateAsync(s => s.SetProperty(u => u.Plan, Plans.Pro));
+        // Renewing early adds to the time already paid for rather than overwriting it.
+        var now = DateTime.UtcNow;
+        var paidUntil = await db.Subscriptions
+            .Where(s => s.UserId == subscription.UserId && s.Id != subscription.Id && s.Plan == subscription.Plan && s.Status == SubscriptionStatus.Active && s.RenewsAt > now)
+            .MaxAsync(s => s.RenewsAt);
+        subscription.RenewsAt = (paidUntil ?? now).AddDays(options.ProDays);
         await db.SaveChangesAsync();
     }
 }

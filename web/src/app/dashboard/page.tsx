@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AppShell, ErrorNote, errorText } from "@/components/shell";
 import { ScoreChart } from "@/components/score-chart";
-import { api, CATEGORY_LABEL, prettyDate, type PracticePlan, type Progress, type SessionRow } from "@/lib/api";
+import { api, CATEGORY_LABEL, levelLabel, prettyDate, type PracticePlan, type Progress, type SessionRow } from "@/lib/api";
 
 const STATUS: Record<string, string> = {
   created: "Not started", active: "In progress", evaluating: "Scoring…", failed: "Scoring failed", abandoned: "Ended early",
@@ -40,14 +40,14 @@ export default function Dashboard() {
           <h1 className="text-3xl font-semibold">Your practice</h1>
           {progress && <p className="mt-1 text-sm text-ink-2">{progress.used} of {progress.limit} interviews used this month</p>}
         </div>
-        {atLimit ? <Link href="/settings/" className="btn">Get more interviews</Link> : <Link href="/new/" className="btn">Start an interview</Link>}
+        {atLimit ? <Link href="/pricing/" className="btn">Get more interviews</Link> : <Link href="/new/" className="btn">Start an interview</Link>}
       </div>
       <div className="mt-4"><ErrorNote message={error} /></div>
 
       {sessions?.length === 0 && (
         <div className="card mt-6">
           <h2 className="text-xl font-semibold">Your first interview takes about 10 minutes</h2>
-          <p className="mt-1 text-ink-2">Start with an easy HR round. Your scores and practice plan will appear here afterwards.</p>
+          <p className="mt-1 text-ink-2">Start with a Level 1 HR round. It assumes no experience at all. Your scores and practice plan will appear here afterwards.</p>
           <Link href="/new/" className="btn mt-4">Start now</Link>
         </div>
       )}
@@ -100,7 +100,7 @@ export default function Dashboard() {
               <li key={s.id}>
                 <Link href={hrefFor(s)} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-surface-2">
                   <span>
-                    <span className="font-medium">{CATEGORY_LABEL[s.category]}, {s.difficulty}</span>
+                    <span className="font-medium">{CATEGORY_LABEL[s.category]}, {levelLabel(s.level)}</span>
                     <span className="block text-sm text-ink-3">{prettyDate(s.createdAt)} · {s.mode}</span>
                   </span>
                   <span className="text-right text-sm text-ink-2 tabular-nums">{s.score !== null ? <strong className="text-lg text-ink">{s.score}</strong> : STATUS[s.status] ?? s.status}</span>

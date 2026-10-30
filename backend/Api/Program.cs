@@ -5,6 +5,7 @@ using Hangfire;
 using Hangfire.SqlServer;
 using Infrastructure;
 using Infrastructure.Ai;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -74,10 +75,16 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         o.Events.OnRedirectToAccessDenied = c => { c.Response.StatusCode = 403; return Task.CompletedTask; };
         o.Events.OnValidatePrincipal = async c =>
         {
-            // A deleted account must lose access immediately even though its cookie is still valid.
+            // Deleted or disabled accounts, and any change of password or role, end existing sessions at once.
             var db = c.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
             var id = Guid.Parse(c.Principal!.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            if (!await db.Users.AnyAsync(u => u.Id == id)) c.RejectPrincipal();
+            var stamp = c.Principal.FindFirstValue(AuthEndpoints.StampClaim);
+            var ok = Guid.TryParse(stamp, out var parsed) && await db.Users.AnyAsync(u => u.Id == id && !u.IsDisabled && u.SecurityStamp == parsed);
+            if (!ok)
+            {
+                c.RejectPrincipal();
+                await c.HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            }
         };
     });
 builder.Services.AddAuthorization();
@@ -113,6 +120,7 @@ using (var scope = app.Services.CreateScope())
     if (app.Configuration.GetValue("Database:AutoMigrate", false))
         await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<Seeder>().RunAsync();
+    await AdminBootstrap.RunAsync(scope.ServiceProvider);
 }
 
 app.UseForwardedHeaders();
@@ -129,7 +137,7 @@ app.Use((ctx, next) =>
     h.XContentTypeOptions = "nosniff";
     h.XFrameOptions = "DENY";
     h["Referrer-Policy"] = "strict-origin-when-cross-origin";
-    h["Permissions-Policy"] = "microphone=(self), camera=()";
+    h["Permissions-Policy"] = "microphone=(self), camera=(self)";
     // Next's static export emits inline bootstrap scripts, hence 'unsafe-inline' for scripts.
     h.ContentSecurityPolicy = "default-src 'self'; " +
         "script-src 'self' 'unsafe-inline' https://accounts.google.com https://checkout.razorpay.com; " +

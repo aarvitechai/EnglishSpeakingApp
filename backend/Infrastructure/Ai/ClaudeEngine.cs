@@ -54,7 +54,7 @@ public class ClaudeInterviewer(AnthropicClient client, AiOptions options, Prompt
     {
         var s = new StringBuilder(prompts.Interviewer);
         s.Append("\n\n# This interview\n");
-        s.Append($"Category: {c.Category}\nDifficulty: {c.Difficulty}\nPersona: {c.Persona}\n");
+        s.Append($"Category: {c.Category}\nLevel: {Levels.Label(c.Difficulty)}\nPersona: {c.Persona}\n");
         if (!string.IsNullOrWhiteSpace(c.TargetRole)) s.Append($"Target role: {c.TargetRole}\n");
         s.Append("\nPlanned questions, in order:\n");
         for (int i = 0; i < c.PlanQuestions.Count; i++) s.Append($"{i + 1}. {c.PlanQuestions[i]}\n");
@@ -117,7 +117,7 @@ public class ClaudeEvaluator(AnthropicClient client, AiOptions options, PromptLi
     private static string BuildUserMessage(EvaluatorInput input)
     {
         var s = new StringBuilder();
-        s.Append($"Category: {input.Category}\nDifficulty: {input.Difficulty}\n\n<rubric>\n");
+        s.Append($"Category: {input.Category}\nLevel: {Levels.Label(input.Difficulty)}\n\n<rubric>\n");
         s.Append(JsonSerializer.Serialize(input.Rubric, Web));
         s.Append("\n</rubric>\n\n<transcript>\n");
         foreach (var a in input.Answers)
