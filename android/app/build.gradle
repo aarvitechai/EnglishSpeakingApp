@@ -1,0 +1,42 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.neurotara.interview"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.neurotara.interview"
+        minSdk 23
+        targetSdk 35
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    // The keystore lives outside the repository. Its location and passwords come from the environment.
+    signingConfigs {
+        release {
+            storeFile file(System.getenv("NEUROTARA_KEYSTORE") ?: "missing.jks")
+            storePassword System.getenv("NEUROTARA_KEYSTORE_PASSWORD")
+            keyAlias "neurotara"
+            keyPassword System.getenv("NEUROTARA_KEYSTORE_PASSWORD")
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation "com.google.androidbrowserhelper:androidbrowserhelper:2.5.0"
+}

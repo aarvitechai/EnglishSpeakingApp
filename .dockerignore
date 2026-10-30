@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.next/
+web/out/
+backend/Api/wwwroot/
+.git/
+.env
+NeuroTara_brand_kit/

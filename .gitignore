@@ -12,3 +12,7 @@ backend/Api/logs/
 .env
 appsettings.Production.json
 TestResults/
+android/.gradle/
+android/app/build/
+android/build/
+web/public/download/*.apk

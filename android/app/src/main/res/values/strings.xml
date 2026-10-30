@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NeuroTara</string>
+    <string name="asset_statements">[{\"relation\":[\"delegate_permission/common.handle_all_urls\"],\"target\":{\"namespace\":\"web\",\"site\":\"https://interview.neurotara.com\"}}]</string>
+    <color name="brand">#BE1A2E</color>
+    <color name="white">#FFFFFF</color>
+</resources>
