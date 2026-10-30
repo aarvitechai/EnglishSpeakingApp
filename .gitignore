@@ -1,0 +1,14 @@
+bin/
+obj/
+*.user
+.vs/
+node_modules/
+.next/
+web/out/
+web/next-env.d.ts
+web/tsconfig.tsbuildinfo
+backend/Api/wwwroot/
+backend/Api/logs/
+.env
+appsettings.Production.json
+TestResults/

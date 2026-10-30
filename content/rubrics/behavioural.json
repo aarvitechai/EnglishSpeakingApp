@@ -1,0 +1,14 @@
+{
+  "category": "behavioural",
+  "version": 1,
+  "dimensions": [
+    { "key": "star_structure", "name": "STAR structure", "weight": 0.3, "description": "Situation, task, action and result let an interviewer follow your story and judge it.",
+      "levels": { "1": "No story; opinions or generalities.", "3": "A story with one or two STAR parts missing or thin.", "5": "Clear situation, task, action and result in proportion." } },
+    { "key": "ownership", "name": "Personal ownership", "weight": 0.25, "description": "Interviewers are hiring you, not your team, so they need to hear what you personally did.",
+      "levels": { "1": "Only 'we', or the candidate's role is unclear.", "3": "Some personal actions, mixed with team credit.", "5": "Explicit about the candidate's own decisions and actions." } },
+    { "key": "impact", "name": "Result and impact", "weight": 0.25, "description": "A result shows that your actions mattered; numbers make it credible.",
+      "levels": { "1": "No outcome stated.", "3": "An outcome with no measure.", "5": "A clear, measured outcome and what was learned." } },
+    { "key": "reasoning", "name": "Judgement", "weight": 0.2, "description": "How you weighed options shows how you will behave in new situations.",
+      "levels": { "1": "No reasoning behind actions.", "3": "Some reasons given.", "5": "Considers alternatives and explains why the chosen action was right." } }
+  ]
+}

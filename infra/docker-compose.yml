@@ -1,0 +1,36 @@
+# Self-contained stack: `cp .env.example .env`, fill it in, then `docker compose --env-file ../.env up --build`.
+# Put an HTTPS reverse proxy in front of `app` in production: session cookies are Secure-only outside Development.
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2025-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SQL_SA_PASSWORD:?set SQL_SA_PASSWORD}
+    volumes:
+      - sqldata:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      retries: 12
+
+  app:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      ConnectionStrings__Default: Server=db;Database=InterviewAI;User Id=sa;Password=${SQL_SA_PASSWORD};TrustServerCertificate=True;
+      Database__AutoMigrate: "true"
+      Ai__ApiKey: ${ANTHROPIC_API_KEY:-}
+      Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      Billing__KeyId: ${RAZORPAY_KEY_ID:-}
+      Billing__KeySecret: ${RAZORPAY_KEY_SECRET:-}
+      Billing__WebhookSecret: ${RAZORPAY_WEBHOOK_SECRET:-}
+      Admin__Emails__0: ${ADMIN_EMAIL:-}
+
+volumes:
+  sqldata:

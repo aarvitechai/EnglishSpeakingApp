@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      sql:
+        image: mcr.microsoft.com/mssql/server:2025-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: Ci_Only_Passw0rd!
+        ports:
+          - 1433:1433
+    env:
+      TEST_SQL_CONNECTION: Server=localhost;Database=InterviewAI_Test;User Id=sa;Password=Ci_Only_Passw0rd!;TrustServerCertificate=True;
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      # Includes the golden regression evals: prompt or scoring changes must pass them to merge.
+      - run: dotnet test backend/InterviewAI.slnx
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build

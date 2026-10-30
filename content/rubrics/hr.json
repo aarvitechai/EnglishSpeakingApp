@@ -1,0 +1,14 @@
+{
+  "category": "hr",
+  "version": 1,
+  "dimensions": [
+    { "key": "clarity", "name": "Clarity", "weight": 0.25, "description": "Interviewers remember answers that are easy to follow and get to the point.",
+      "levels": { "1": "Rambling or unclear; the point is hard to find.", "3": "Understandable with some wandering.", "5": "Direct, well organised and easy to follow throughout." } },
+    { "key": "specificity", "name": "Specificity", "weight": 0.3, "description": "Concrete examples make claims believable; generic statements could come from anyone.",
+      "levels": { "1": "Only generic claims.", "3": "Some real examples but light on detail.", "5": "Every claim is backed by a specific example, with details or numbers." } },
+    { "key": "motivation", "name": "Motivation and fit", "weight": 0.25, "description": "Recruiters want to see that you know why you want this path and how you fit it.",
+      "levels": { "1": "No reason given, or a reason that could apply to any job.", "3": "A believable reason that is not tied to the role.", "5": "A clear, personal reason linked to the role and the candidate's own experience." } },
+    { "key": "self_awareness", "name": "Self-awareness", "weight": 0.2, "description": "Honest reflection on strengths and gaps signals you can grow on the job.",
+      "levels": { "1": "Clichés or no reflection.", "3": "Some honest reflection without action.", "5": "Honest about strengths and gaps, with evidence of acting on them." } }
+  ]
+}

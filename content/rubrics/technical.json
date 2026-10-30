@@ -1,0 +1,14 @@
+{
+  "category": "technical",
+  "version": 1,
+  "dimensions": [
+    { "key": "accuracy", "name": "Accuracy", "weight": 0.35, "description": "Correct fundamentals are the first thing a technical interviewer checks.",
+      "levels": { "1": "Major errors or no real answer.", "3": "Mostly correct with some gaps.", "5": "Correct and precise, including the important edge cases." } },
+    { "key": "depth", "name": "Depth", "weight": 0.25, "description": "Going past the definition to the how and the why separates understanding from memorising.",
+      "levels": { "1": "Definition only, or less.", "3": "Explains how it works at a basic level.", "5": "Explains why it works and discusses trade-offs." } },
+    { "key": "examples", "name": "Applied examples", "weight": 0.2, "description": "Connecting a concept to real use shows you can apply it at work.",
+      "levels": { "1": "No example.", "3": "A generic textbook example.", "5": "A concrete example, ideally from the candidate's own project." } },
+    { "key": "communication", "name": "Technical communication", "weight": 0.2, "description": "Teammates must be able to follow your explanation.",
+      "levels": { "1": "Confusing or disorganised.", "3": "Followable with effort.", "5": "Builds the explanation step by step, using terms correctly." } }
+  ]
+}
